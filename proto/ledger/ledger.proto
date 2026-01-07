@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package ledger;
+option go_package = "github.com/justinndidit/nexus/proto/ledger";
+
+// Represents a monetary amount
+message Money {
+    string currency_code = 1; // ISO 4217 (e.g., "NGN")
+    int64 units = 2;          // The whole units (e.g., 100 Naira)
+    int32 nanos = 3;          // Nano units (10^-9) (e.g., 50 kobo = 500,000,000 nanos)
+}
+
+service LedgerService {
+    rpc RecordTransfer (TransferRequest) returns (TransferResponse);
+}
+
+message TransferRequest {
+    Money amount = 1;
+    string from_account_id = 2;
+    string destination_account_id = 3;
+    string idempotency_key = 4; // Required for retry safety
+    string metadata = 5;        // JSON or string for audit remarks
+}
+
+message TransferResponse {
+    string transaction_id = 1;
+    string status = 2;
+}
