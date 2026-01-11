@@ -8,6 +8,10 @@ import (
 )
 
 // TODO: Implement function
+/*
+	converts Money to it's decimal equivalent
+	It is dependent on currency
+*/
 func MoneyIntToDeimal(domain.Money) decimal.Decimal {
 	return decimal.Decimal{}
 }

@@ -33,6 +33,9 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		return err
 	}
 
+	/*
+		Sort account ids in order to prevent deadlocks - Lock ordering
+	*/
 	firstAccount, secondAccount := utils.SortAccount(req.DestinationAccountID.String(), req.FromAccountID.String())
 
 	s.txManager.WithTansaction(ctx, func(repo Repository) error {
@@ -54,7 +57,7 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		//TODO: Implement Money converter method
 		transferAmountDecimal := utils.MoneyIntToDeimal(req.Money)
 		if sender.AvailableBalance.Compare(transferAmountDecimal) < 0 {
-			s.logger.Warn().Msgf("sender %s has insufficient balance", sender.ID)
+			s.logger.Error().Msgf("sender %s has insufficient balance", sender.ID)
 			return errors.New("insufficient funds")
 		}
 
