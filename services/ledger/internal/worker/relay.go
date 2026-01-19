@@ -16,10 +16,11 @@ type RelayWorker struct {
 	publisher broker.Publisher
 }
 
-func NewRelayWorker(logger *zerolog.Logger, repo ledger.PostgresRepository) *RelayWorker {
+func NewRelayWorker(logger *zerolog.Logger, repo ledger.PostgresRepository, publisher *broker.KafkaProducer) *RelayWorker {
 	return &RelayWorker{
-		logger: logger,
-		repo:   &repo,
+		logger:    logger,
+		repo:      &repo,
+		publisher: publisher,
 	}
 }
 
@@ -45,7 +46,11 @@ func (w *RelayWorker) processBatch(ctx context.Context) {
 	}
 
 	for _, event := range events {
-		byte, err := json.Marshal(event.Payload)
+		payload := broker.PublisherPayload{
+			EventID: event.ID,
+			Payload: event.Payload,
+		}
+		byte, err := json.Marshal(payload)
 		if err != nil {
 			w.logger.Error().Err(err).Msgf("failed to stringify payload for %s", event.ID)
 			continue

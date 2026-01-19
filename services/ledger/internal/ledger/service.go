@@ -86,8 +86,13 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 			return err
 		}
 		outboxEvent := domain.CreateOutboxEventRequest{
-			EventType:      domain.EventMoneyTransfer,
-			Payload:        req,
+			EventType: domain.EventMoneyTransfer,
+			Payload: domain.TransactionEventPayload{
+				FromAccountID:        req.FromAccountID,
+				DestinationAccountID: req.DestinationAccountID,
+				Amount:               utils.MoneyIntToDeimal(req.Money),
+				Currency:             req.Meta["currency_code"].(string),
+			},
 			Status:         domain.OutboxEventPending,
 			IdempotencyKey: req.IdempotencyKey,
 			Priority:       domain.OutboxPriorityHigh,
