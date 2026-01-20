@@ -20,7 +20,8 @@ CREATE TABLE accounts (
 
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID NOT NULL,
+  from_account_id UUID NOT NULL,
+  destination_account_id UUID NOT NULL
 
   session_id VARCHAR(50) NOT NULL,
   reference VARCHAR(50),

@@ -74,19 +74,20 @@ func (pr *PostgresRepository) CopyFrom(ctx context.Context, tableName pgx.Identi
 
 func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction domain.CreateTransactionRequest) (*domain.Transaction, error) {
 	stmt := `
-		INSERT INTO transactions(account_id, reference, session_id, currency_code, description, status, amount)
-		VALUES(@accountID, @reference, @sessionID, @currencyCode, @description, @status, @amount)
+		INSERT INTO transactions(from_account_id, destination_account_id,reference, session_id, currency_code, description, status, amount)
+		VALUES(@accountID, @destinationAccountID,@reference, @sessionID, @currencyCode, @description, @status, @amount)
 		RETURNING *
 	`
 
 	rows, err := pr.Query(ctx, stmt, pgx.NamedArgs{
-		"accountID":    transaction.AccountID,
-		"reference":    transaction.Reference,
-		"sessionID":    transaction.SessionID,
-		"currencyCode": transaction.Currency,
-		"description":  transaction.Description,
-		"status":       transaction.Status,
-		"amount":       transaction.Amount,
+		"fromAccountID":        transaction.FromAccountID,
+		"destinationAccountID": transaction.DestinationAccountID,
+		"reference":            transaction.Reference,
+		"sessionID":            transaction.SessionID,
+		"currencyCode":         transaction.Currency,
+		"description":          transaction.Description,
+		"status":               transaction.Status,
+		"amount":               transaction.Amount,
 	})
 	if err != nil {
 		pr.logger.Error().Err(err).Msg("failed to execute sql statement")

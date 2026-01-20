@@ -1,6 +1,7 @@
 package com.justinndidit.nexus.account.domain;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import jakarta.persistence.Entity;
@@ -31,4 +32,8 @@ public class Account {
 
   @Version
   private long version; //optimistic locking
+
+  private LocalDateTime createdAt;
+  private LocalDateTime updatedAt;
+
 }

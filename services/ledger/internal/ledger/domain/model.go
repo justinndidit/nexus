@@ -23,15 +23,16 @@ const (
 )
 
 type Transaction struct {
-	ID          uuid.UUID       `db:"id" json:"id"`
-	AccountID   uuid.UUID       `db:"account_id" json:"account_id"`
-	Reference   string          `db:"reference" json:"reference omitempty"`
-	SessionID   string          `db:"session_id" json:"session_id"`
-	Currency    string          `db:"currency_code" json:"currency_code"`
-	Description string          `db:"description" json:"description omitempty"`
-	Status      string          `db:"status" json:"status"`
-	Amount      decimal.Decimal `db:"amount" json:"amount"`
-	CreatedAt   *time.Time      `db:"created_at" json:"created_at"`
+	ID                   uuid.UUID       `db:"id" json:"id"`
+	FromAccountID        uuid.UUID       `db:"from_account_id" json:"from_account_id"`
+	DestinationAccountID uuid.UUID       `db:"destination_Account_id" json:"destination_Account_id"`
+	Reference            string          `db:"reference" json:"reference omitempty"`
+	SessionID            string          `db:"session_id" json:"session_id"`
+	Currency             string          `db:"currency_code" json:"currency_code"`
+	Description          string          `db:"description" json:"description omitempty"`
+	Status               string          `db:"status" json:"status"`
+	Amount               decimal.Decimal `db:"amount" json:"amount"`
+	CreatedAt            *time.Time      `db:"created_at" json:"created_at"`
 }
 
 type LedgerEntry struct {

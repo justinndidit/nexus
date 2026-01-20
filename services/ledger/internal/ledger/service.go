@@ -72,12 +72,13 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		}
 
 		tx := domain.CreateTransactionRequest{
-			AccountID:   req.FromAccountID,
-			SessionID:   req.IdempotencyKey,
-			Currency:    req.Money.Currency,
-			Description: req.Meta["Description"].(string),
-			Status:      string(domain.TRANSACTION_PENDING),
-			Amount:      transferAmountDecimal,
+			FromAccountID:        req.FromAccountID,
+			DestinationAccountID: req.DestinationAccountID,
+			SessionID:            req.IdempotencyKey,
+			Currency:             req.Money.Currency,
+			Description:          req.Meta["Description"].(string),
+			Status:               string(domain.TRANSACTION_PENDING),
+			Amount:               transferAmountDecimal,
 		}
 
 		newTx, err := repo.CreateTransaction(ctx, tx)

@@ -1,4 +1,4 @@
-package com.justinndidit.nexus.account.config.dtos;
+package com.justinndidit.nexus.account.dtos;
 
 import java.math.BigDecimal;
 import java.util.UUID;
