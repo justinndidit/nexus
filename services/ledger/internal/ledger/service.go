@@ -89,6 +89,7 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		outboxEvent := domain.CreateOutboxEventRequest{
 			EventType: domain.EventMoneyTransfer,
 			Payload: domain.TransactionEventPayload{
+				TransactionID:        newTx.ID,
 				FromAccountID:        req.FromAccountID,
 				DestinationAccountID: req.DestinationAccountID,
 				Amount:               utils.MoneyIntToDeimal(req.Money),

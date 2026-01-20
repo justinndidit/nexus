@@ -48,6 +48,7 @@ public class LedgerConsumer {
       eventRepository.save(new ProcessedEvent(message.eventId(),LocalDateTime.now()));
 
       transactionRepository.save(new Transaction(
+        message.payload().transactionId(),
         message.payload().fromAccountId(),
         message.payload().destinationAccountId(),
         message.payload().currency_code(),

@@ -64,6 +64,7 @@ type CreateOutboxEventRequest struct {
 }
 
 type TransactionEventPayload struct {
+	TransactionID        uuid.UUID       `json:"transaction_id" db:"transaction_id"`
 	FromAccountID        uuid.UUID       `json:"from_account_id" db:"from_account_id"`
 	DestinationAccountID uuid.UUID       `json:"destination_account_id" db:"destination_account_id"`
 	Amount               decimal.Decimal `json:"amount" db:"amount"`
