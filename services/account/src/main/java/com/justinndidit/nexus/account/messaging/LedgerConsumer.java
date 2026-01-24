@@ -28,13 +28,14 @@ public class LedgerConsumer {
   private final AccountRepository accountRepository;
   private final TransactionRepository transactionRepository;
   private final CustomLogger logger;
+  private final String baseGroupId = "com.justinndidit.nexus.account";
 
 /*
   @KafkaLister designates a bean methof as a message listener
 
 */
 
-  @KafkaListener(topics="ledger.transactions.v1", groupId="com.justinndidit.nexus.transactions")
+  @KafkaListener(topics="ledger.transactions.v1", groupId=baseGroupId + ".ledger_transactions")
   @Transactional
   public void consume(TransferEvent message) {
     try {

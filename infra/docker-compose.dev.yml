@@ -1,0 +1,114 @@
+services:
+  account-service-pg:
+    container_name: dev:postgres:account
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ACCOUNT_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - account_data:/var/lib/postgresql/data
+      - ../scripts/init_account_db.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    networks:
+      - nexus-backend
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  ledger-service-pg:
+    container_name: dev:postgres:ledger
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LEDGER_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${LEDGER_DB_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - ledger_data:/var/lib/postgresql/data
+      - ../scripts/init_ledger_db.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    networks:
+      - nexus-backend
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  nexus-redis:
+    image: redis:7-alpine
+    container_name: nexus-dev-redis
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    networks:
+      - nexus-backend
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  nexus-broker-one:
+    image: apache/kafka-native:3.6.0
+    container_name: nexus-dev-broker-one
+    restart: unless-stopped
+    ports:
+      - "9092:9092"   # HOST listener
+      - "9093:9093"   # DOCKER listener for internal container communication
+    environment:
+      # Listeners
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://nexus-dev-broker-one:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+
+      # KRaft configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@0.0.0.0:9091
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - nexus-backend
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+  nexus-broker-ui:
+    image: kafbat/kafka-ui:main
+    container_name: nexus-dev-broker-ui
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nexus-dev-broker-one:9093
+    depends_on:
+      - nexus-broker-one
+    networks:
+      - nexus-backend
+networks:
+  nexus-backend:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  kafka1_data:
+    driver: local
+  ledger_data:
+    driver: local
+  account_data:
+    driver: local
