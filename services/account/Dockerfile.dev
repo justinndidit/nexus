@@ -1,0 +1,11 @@
+FROM gradle:9.2-jdk25-alpine
+
+WORKDIR /app
+
+# Copy only the build files first to cache dependencies
+COPY settings.gradle build.gradle ./
+COPY services/account/build.gradle ./services/account/
+
+# The 'bootRun' command with --continuous watches for source changes
+# Note: This requires your local code to be mounted as a volume
+CMD ["gradle", ":services:account:bootRun", "--continuous", "-PskipTest=true"]
