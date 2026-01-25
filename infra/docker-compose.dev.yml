@@ -39,9 +39,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  nexus-redis:
+  nexus-redis-one:
     image: redis:7-alpine
-    container_name: nexus-dev-redis
+    container_name: nexus:dev-redis-one
     restart: unless-stopped
     command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
     ports:
@@ -97,6 +97,71 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nexus-dev-broker-one:9093
     depends_on:
       - nexus-broker-one
+    networks:
+      - nexus-backend
+  nexus-ledger-service:
+    container_name: nexus:dev-ledger-service
+    build:
+      context: ../services/ledger
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../services/ledger:/app
+    ports:
+      - "3001:3001"
+    environment:
+      -
+    depends_on:
+      - ledger-service-pg:
+          condition: service_healthy
+      - nexus-broker-one:
+          condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  nexus-notification-service:
+    container_name: nexus:dev-notification-service
+    build:
+      context: ../services/notification
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../services/notification:/app
+    ports:
+      - "3002:3002"
+    environment:
+      -
+    depends_on:
+      - nexus-broker-one:
+          condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  nexus-accounts-service:
+    container_name: nexus:dev-accounts-service
+    build:
+      context: ../services/account
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../services/account:/app
+    ports:
+      - "3000:3000"
+    environment:
+      -
+    depends_on:
+      - nexus-broker-one:
+          condition: service_healthy
+      - account-service-pg:
+          condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
     networks:
       - nexus-backend
 networks:
