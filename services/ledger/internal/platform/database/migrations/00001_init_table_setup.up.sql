@@ -84,3 +84,4 @@ CREATE TABLE outbox_events (
 );
 CREATE INDEX idx_outbox_pending ON outbox_events(status, priority DESC, created_at);
 CREATE UNIQUE INDEX uq_outbox_idempo ON outbox_events(producer, idempotency_key);
+CREATE INDEX idx_outbox_fetch_worker ON outbox_events(status, priority DESC, created_at) WHERE status = 'PENDING';

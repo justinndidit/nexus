@@ -10,4 +10,5 @@ dependencies {
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   implementation 'org.tinylog:tinylog-api:2.7.0'
   implementation 'org.tinylog:tinylog-impl:2.7.0'
+  implementation 'org.flywaydb:flyway-core:11.20.2'
 }
