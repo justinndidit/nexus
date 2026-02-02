@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justinndidit/nexus/ledger/internal/ledger/domain"
 	"github.com/rs/zerolog"
-	"github.com/shopspring/decimal"
 )
 
 type PostgresRepository struct {
@@ -87,7 +86,7 @@ func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction
 		"currencyCode":         transaction.Currency,
 		"description":          transaction.Description,
 		"status":               transaction.Status,
-		"amount":               transaction.Amount,
+		"amount":               transaction.AmountMinDenomination,
 	})
 	if err != nil {
 		pr.logger.Error().Err(err).Msg("failed to execute sql statement")
@@ -113,7 +112,7 @@ func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []d
 		cmd, err := pr.Exec(ctx, stmt, pgx.NamedArgs{
 			"transaction_id":  entry.TransactionID,
 			"account_id":      entry.AccountID,
-			"amount":          entry.Amount,
+			"amount":          entry.AmountMinDenomination,
 			"currency":        entry.Currency,
 			"idempotency_key": entry.IdempotencyKey,
 		})
@@ -137,7 +136,7 @@ func (pr *PostgresRepository) CreateLedgerEntryBulk(ctx context.Context, entries
 	},
 		pgx.CopyFromSlice(len(entries), func(i int) ([]any, error) {
 			return []any{entries[i].TransactionID, entries[i].IdempotencyKey, entries[i].AccountID,
-				entries[i].Amount, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
+				entries[i].AmountMinDenomination, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
 		}))
 
 	if err != nil {
@@ -176,7 +175,7 @@ func (pr *PostgresRepository) GetAccountForUpdate(ctx context.Context, accountID
 	return &account, nil
 }
 
-func (pr *PostgresRepository) UpdateBalance(ctx context.Context, accountID string, amount decimal.Decimal) error {
+func (pr *PostgresRepository) UpdateBalance(ctx context.Context, accountID string, amount int64) error {
 	stmt := `
 		UPDATE accounts SET available_balance = available_balance + @amount
 		WHERE id = @accountID

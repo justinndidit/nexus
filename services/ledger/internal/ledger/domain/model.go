@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 type TransactionStatus string
@@ -23,43 +22,43 @@ const (
 )
 
 type Transaction struct {
-	ID                   uuid.UUID       `db:"id" json:"id"`
-	FromAccountID        uuid.UUID       `db:"from_account_id" json:"from_account_id"`
-	DestinationAccountID uuid.UUID       `db:"destination_Account_id" json:"destination_Account_id"`
-	Reference            string          `db:"reference" json:"reference omitempty"`
-	SessionID            string          `db:"session_id" json:"session_id"`
-	Currency             string          `db:"currency_code" json:"currency_code"`
-	Description          string          `db:"description" json:"description omitempty"`
-	Status               string          `db:"status" json:"status"`
-	Amount               decimal.Decimal `db:"amount" json:"amount"`
-	CreatedAt            *time.Time      `db:"created_at" json:"created_at"`
+	ID                   uuid.UUID  `db:"id" json:"id"`
+	FromAccountID        uuid.UUID  `db:"from_account_id" json:"from_account_id"`
+	DestinationAccountID uuid.UUID  `db:"destination_Account_id" json:"destination_Account_id"`
+	Reference            string     `db:"reference" json:"reference omitempty"`
+	SessionID            string     `db:"session_id" json:"session_id"`
+	Currency             string     `db:"currency_code" json:"currency_code"`
+	Description          string     `db:"description" json:"description omitempty"`
+	Status               string     `db:"status" json:"status"`
+	Amount               int64      `db:"amount" json:"amount"`
+	CreatedAt            *time.Time `db:"created_at" json:"created_at"`
 }
 
 type LedgerEntry struct {
-	ID             uuid.UUID       `json:"id" db:"id"`
-	TransactionID  uuid.UUID       `json:"transaction_id" db:"transaction_id"`
-	AccountID      uuid.UUID       `json:"account_id" db:"account_id"`
-	EntryType      string          `json:"entry_type" db:"entry_type"`
-	Amount         decimal.Decimal `json:"amount" db:"amount"`
-	Currency       string          `json:"currency_code" db:"currency_code"`
-	IdempotencyKey string          `json:"idempotency_key" db:"idempotency_key"`
-	Status         string          `json:"status" db:"status"`
-	CreatedAt      *time.Time      `json:"created_at" db:"created_at"`
+	ID                    uuid.UUID  `json:"id" db:"id"`
+	TransactionID         uuid.UUID  `json:"transaction_id" db:"transaction_id"`
+	AccountID             uuid.UUID  `json:"account_id" db:"account_id"`
+	EntryType             string     `json:"entry_type" db:"entry_type"`
+	AmountMinDenomination int64      `json:"amount" db:"amount"`
+	Currency              string     `json:"currency_code" db:"currency_code"`
+	IdempotencyKey        string     `json:"idempotency_key" db:"idempotency_key"`
+	Status                string     `json:"status" db:"status"`
+	CreatedAt             *time.Time `json:"created_at" db:"created_at"`
 }
 
 type Account struct {
-	ID               uuid.UUID       `json:"id" db:"id"`
-	UserID           uuid.UUID       `json:"user_id" db:"user_id"`
-	ProfileID        uuid.UUID       `json:"profile_id" db:"profile_id"`
-	AccountNumber    string          `json:"account_number" db:"account_number"`
-	Currency         string          `json:"currency_code" db:"currency_code"`
-	AccountType      string          `json:"account_type" db:"account_type"`
-	AccountStatus    string          `json:"account_status" db:"account_status"`
-	AvailableBalance decimal.Decimal `json:"available_balance" db:"available_balance"`
-	LedgerBalance    decimal.Decimal `json:"ledger_balance" db:"ledger_balance"`
-	Version          int64           `json:"version" db:"version"`
-	CreatedAt        *time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt        *time.Time      `json:"updated_at" db:"updated_at"`
+	ID                              uuid.UUID  `json:"id" db:"id"`
+	UserID                          uuid.UUID  `json:"user_id" db:"user_id"`
+	ProfileID                       uuid.UUID  `json:"profile_id" db:"profile_id"`
+	AccountNumber                   string     `json:"account_number" db:"account_number"`
+	Currency                        string     `json:"currency_code" db:"currency_code"`
+	AccountType                     string     `json:"account_type" db:"account_type"`
+	AccountStatus                   string     `json:"account_status" db:"account_status"`
+	AvailableBalanceMinDenomination int64      `json:"available_balance" db:"available_balance"`
+	LedgerBalanceMinDenomination    int64      `json:"ledger_balance" db:"ledger_balance"`
+	Version                         int64      `json:"version" db:"version"`
+	CreatedAt                       *time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt                       *time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type OutBoxEvent struct {

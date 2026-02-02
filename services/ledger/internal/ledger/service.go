@@ -55,30 +55,30 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		sender := accounts[req.FromAccountID.String()]
 
 		//TODO: Implement Money converter method
-		transferAmountDecimal := utils.MoneyIntToDeimal(req.Money)
-		if sender.AvailableBalance.Compare(transferAmountDecimal) < 0 {
+
+		if sender.AvailableBalanceMinDenomination < req.Money.ValueMinDenomination {
 			s.logger.Error().Msgf("sender %s has insufficient balance", sender.ID)
 			return errors.New("insufficient funds")
 		}
 
-		if err := repo.UpdateBalance(ctx, req.FromAccountID.String(), transferAmountDecimal.Neg()); err != nil {
+		if err := repo.UpdateBalance(ctx, req.FromAccountID.String(), (-1 * req.Money.ValueMinDenomination)); err != nil {
 			s.logger.Error().Err(err).Msgf("failed to update account %s", req.FromAccountID)
 			return err
 		}
 
-		if err := repo.UpdateBalance(ctx, req.DestinationAccountID.String(), transferAmountDecimal); err != nil {
+		if err := repo.UpdateBalance(ctx, req.DestinationAccountID.String(), req.Money.ValueMinDenomination); err != nil {
 			s.logger.Error().Err(err).Msgf("failed to update account %s", req.DestinationAccountID)
 			return err
 		}
 
 		tx := domain.CreateTransactionRequest{
-			FromAccountID:        req.FromAccountID,
-			DestinationAccountID: req.DestinationAccountID,
-			SessionID:            req.IdempotencyKey,
-			Currency:             req.Money.Currency,
-			Description:          req.Meta["Description"].(string),
-			Status:               string(domain.TRANSACTION_PENDING),
-			Amount:               transferAmountDecimal,
+			FromAccountID:         req.FromAccountID,
+			DestinationAccountID:  req.DestinationAccountID,
+			SessionID:             req.IdempotencyKey,
+			Currency:              req.Money.Currency,
+			Description:           req.Meta["Description"].(string),
+			Status:                string(domain.TRANSACTION_PENDING),
+			AmountMinDenomination: req.Money.ValueMinDenomination,
 		}
 
 		newTx, err := repo.CreateTransaction(ctx, tx)
@@ -89,11 +89,11 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 		outboxEvent := domain.CreateOutboxEventRequest{
 			EventType: domain.EventMoneyTransfer,
 			Payload: domain.TransactionEventPayload{
-				TransactionID:        newTx.ID,
-				FromAccountID:        req.FromAccountID,
-				DestinationAccountID: req.DestinationAccountID,
-				Amount:               utils.MoneyIntToDeimal(req.Money),
-				Currency:             req.Meta["currency_code"].(string),
+				TransactionID:          newTx.ID,
+				FromAccountID:          req.FromAccountID,
+				DestinationAccountID:   req.DestinationAccountID,
+				AmountMMinDenomination: req.Money.ValueMinDenomination,
+				Currency:               req.Money.Currency,
 			},
 			Status:         domain.OutboxEventPending,
 			IdempotencyKey: req.IdempotencyKey,
@@ -109,24 +109,24 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 
 		//represents sender
 		entries[0] = domain.LedgerEntry{
-			TransactionID:  newTx.ID,
-			AccountID:      req.FromAccountID,
-			EntryType:      string(domain.TRANSACTION_DEBIT),
-			Amount:         transferAmountDecimal,
-			Currency:       req.Money.Currency,
-			IdempotencyKey: req.IdempotencyKey,
-			Status:         string(domain.TRANSACTION_PENDING),
+			TransactionID:         newTx.ID,
+			AccountID:             req.FromAccountID,
+			EntryType:             string(domain.TRANSACTION_DEBIT),
+			AmountMinDenomination: req.Money.ValueMinDenomination,
+			Currency:              req.Money.Currency,
+			IdempotencyKey:        req.IdempotencyKey,
+			Status:                string(domain.TRANSACTION_PENDING),
 		}
 
 		//represents recipient
 		entries[1] = domain.LedgerEntry{
-			TransactionID:  newTx.ID,
-			AccountID:      req.DestinationAccountID,
-			EntryType:      string(domain.TRANSACTION_CREDIT),
-			Amount:         transferAmountDecimal,
-			Currency:       req.Money.Currency,
-			IdempotencyKey: req.IdempotencyKey,
-			Status:         string(domain.TRANSACTION_PENDING),
+			TransactionID:         newTx.ID,
+			AccountID:             req.DestinationAccountID,
+			EntryType:             string(domain.TRANSACTION_CREDIT),
+			AmountMinDenomination: req.Money.ValueMinDenomination,
+			Currency:              req.Money.Currency,
+			IdempotencyKey:        req.IdempotencyKey,
+			Status:                string(domain.TRANSACTION_PENDING),
 		}
 
 		return repo.CreateLedgerEntry(ctx, entries)
