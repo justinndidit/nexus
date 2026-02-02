@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"github.com/justinndidit/nexus/ledger/internal/ledger/domain"
-	"github.com/shopspring/decimal"
 )
 
 type Repository interface {
 	CreateLedgerEntry(context.Context, []domain.LedgerEntry) error
 	CreateTransaction(context.Context, domain.CreateTransactionRequest) (*domain.Transaction, error)
 	GetAccountForUpdate(context.Context, string) (*domain.Account, error)
-	UpdateBalance(context.Context, string, decimal.Decimal) error
+	UpdateBalance(context.Context, string, int64) error
 	CreateOutBoxEvent(context.Context, domain.CreateOutboxEventRequest) error
 	GetOutBoxEventsForUpdate(context.Context) ([]domain.OutBoxEvent, error)
 	IncrementRetryCount(context.Context, string, string) error
