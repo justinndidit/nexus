@@ -9,7 +9,6 @@ require (
 	github.com/jackc/tern/v2 v2.3.4
 	github.com/rs/zerolog v1.34.0
 	github.com/segmentio/kafka-go v0.4.50
-	github.com/shopspring/decimal v1.4.0
 )
 
 require (
@@ -31,6 +30,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect

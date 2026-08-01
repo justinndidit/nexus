@@ -8,8 +8,8 @@ CREATE TABLE accounts (
   account_type VARCHAR(25) NOT NULL DEFAULT 'SAVINGS',
   account_status VARCHAR(25) NOT NULL DEFAULT 'ACTIVE',
 
-  ledger_balance DECIMAL(19,4) NOT NULL DEFAULT 0,
-  available_balance DECIMAL(19,4) NOT NULL DEFAULT 0,
+  ledger_balance BIGINT NOT NULL DEFAULT 0,
+  available_balance BIGINT NOT NULL DEFAULT 0,
 
   version BIGINT NOT NULL DEFAULT 0,
 
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   currency_code VARCHAR(3) NOT NULL,
   description VARCHAR(255),
   status VARCHAR(25) NOT NULL DEFAULT 'PENDING',
-  amount DECIMAL(19,4) NOT NULL,
+  amount BIGINT NOT NULL,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -48,7 +48,7 @@ CREATE TABLE ledger_entries (
   transaction_id UUID NOT NULL,
   account_id UUID NOT NULL,
 
-  amount DECIMAL(19,4) NOT NULL CHECK (amount >= 0),
+  amount BIGINT NOT NULL CHECK (amount >= 0),
   entry_type VARCHAR(6) NOT NULL CHECK (entry_type IN ('DEBIT', 'CREDIT')),
   currency_code VARCHAR(3) NOT NULL DEFAULT 'NGN',
   status VARCHAR(15) NOT NULL DEFAULT 'POSTED',

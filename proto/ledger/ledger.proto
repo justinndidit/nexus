@@ -6,8 +6,7 @@ option go_package = "github.com/justinndidit/nexus/proto/ledger";
 // Represents a monetary amount
 message Money {
     string currency_code = 1; // ISO 4217 (e.g., "NGN")
-    int64 units = 2;          // The whole units (e.g., 100 Naira)
-    int32 nanos = 3;          // Nano units (10^-9) (e.g., 50 kobo = 500,000,000 nanos)
+    int64 value = 2         //represents money in currency's minimum denomination
 }
 
 service LedgerService {
@@ -25,4 +24,9 @@ message TransferRequest {
 message TransferResponse {
     string transaction_id = 1;
     string status = 2;
+}
+
+message Account {
+    string id = 1;
+
 }

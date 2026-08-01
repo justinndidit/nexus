@@ -7,7 +7,7 @@ from services.notification.app.core.logger import get_custom_logger
 
 app = FastAPI()
 
-@app.on_event("startuo")
+@app.on_event("startup")
 async def start_up_event():
   pass
 
