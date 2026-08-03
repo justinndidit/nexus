@@ -1,12 +1,15 @@
+name: nexus-dev
 services:
   account-service-pg:
-    container_name: dev:postgres:account
-    image: postgres:16
+    container_name: dev-postgres-account
+    image: postgres:16-alpine
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${ACCOUNT_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD:-postgres}
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${ACCOUNT_DB_USER}
+      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD}
+      POSTGRES_DB: ${ACCOUNT_DB_NAME}
     ports:
       - "5432:5432"
     volumes:
@@ -15,18 +18,20 @@ services:
     networks:
       - nexus-backend
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      test: ['CMD-SHELL', 'pg_isready -U ${ACCOUNT_DB_USER}']
       interval: 10s
       timeout: 5s
       retries: 5
   ledger-service-pg:
-    container_name: dev:postgres:ledger
-    image: postgres:16
+    container_name: dev-postgres-ledger
+    image: postgres:16-alpine
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${LEDGER_DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${LEDGER_DB_PASSWORD:-postgres}
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${LEDGER_DB_USER}
+      POSTGRES_PASSWORD: ${LEDGER_DB_PASSWORD}
+      POSTGRES_DB: ${LEDGER_DB_NAME}
     ports:
       - "5433:5432"
     volumes:
@@ -35,13 +40,15 @@ services:
     networks:
       - nexus-backend
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      test: ['CMD-SHELL', 'pg_isready -U ${LEDGER_DB_USER}']
       interval: 10s
       timeout: 5s
       retries: 5
   nexus-redis-one:
     image: redis:7-alpine
-    container_name: nexus:dev-redis-one
+    container_name: dev-redis-one
+    env_file:
+      - .env
     restart: unless-stopped
     command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
     ports:
@@ -55,125 +62,161 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-  nexus-broker-one:
-    image: apache/kafka-native:3.6.0
-    container_name: nexus-dev-broker-one
+  dev-broker-one:
+    image: confluentinc/cp-kafka:latest
+    hostname: dev-broker-one
+    container_name: dev-broker-one
     restart: unless-stopped
     ports:
       - "9092:9092"   # HOST listener
       - "9093:9093"   # DOCKER listener for internal container communication
     environment:
-      # Listeners
-      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://nexus-dev-broker-one:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
-
-      # KRaft configuration
+      # Node & KRaft Roles
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@0.0.0.0:9091
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@dev-broker-one:9091"
+
+      # Listeners & Binding (0.0.0.0 allows external & inter-container traffic)
+      KAFKA_LISTENERS: HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093,CONTROLLER://0.0.0.0:9091
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://dev-broker-one:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Storage & Cluster Config
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: "Mk3OEYBSD34fcwNTJENDM2Qk"
+
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
-      interval: 30s
+      # Removed .sh extension and directed check to local IPv4 loopback
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server 127.0.0.1:9092 || exit 1"]
+      interval: 10s
       timeout: 10s
       retries: 5
-      start_period: 20s
+      start_period: 15s
     networks:
       - nexus-backend
     volumes:
       - kafka1_data:/var/lib/kafka/data
+
   nexus-broker-ui:
     image: kafbat/kafka-ui:main
-    container_name: nexus-dev-broker-ui
+    container_name: dev-broker-ui
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nexus-dev-broker-one:9093
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: dev-broker-one:9093
     depends_on:
-      - nexus-broker-one
+      dev-broker-one: # Matched service name key above
+        condition: service_healthy
     networks:
       - nexus-backend
+
   nexus-ledger-service:
-    container_name: nexus:dev-ledger-service
+    container_name: dev-ledger-service
     build:
-      context: ../services/ledger
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: services/ledger/Dockerfile.dev
     volumes:
       - ../services/ledger:/app
     ports:
       - "3001:3001"
-    environment:
-      -
+    # environment:
+    #   -
+    env_file:
+      - .env
     depends_on:
-      - ledger-service-pg:
-          condition: service_healthy
-      - nexus-broker-one:
-          condition: service_healthy
+      dev-broker-one:
+        condition: service_healthy
+      ledger-service-pg:
+        condition: service_healthy
+      nexus-redis-one:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 10s
       timeout: 3s
       retries: 5
+    networks:
+    - nexus-backend
   nexus-notification-service:
-    container_name: nexus:dev-notification-service
+    container_name: dev-notification-service
     build:
-      context: ../services/notification
-      dockerfile: Dockerfile.dev
+      context: .. #root location
+      dockerfile: services/notification/Dockerfile.dev #relative to context
     volumes:
       - ../services/notification:/app
     ports:
       - "3002:3002"
-    environment:
-      -
+    # environment:
+    #   -
+    env_file:
+      - .env
     depends_on:
-      - nexus-broker-one:
-          condition: service_healthy
+      dev-broker-one:
+        condition: service_healthy
+      nexus-redis-one:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
       interval: 10s
       timeout: 3s
       retries: 5
+    networks:
+      - nexus-backend
 
   nexus-accounts-service:
-    container_name: nexus:dev-accounts-service
+    container_name: dev-accounts-service
     build:
-      context: ../services/account
-      dockerfile: Dockerfile.dev
+      context: ..
+      dockerfile: services/account/Dockerfile.dev
+    working_dir: /workspace  # sets process' current direc
     volumes:
-      - ../services/account:/app
+      - ..:/workspace
+      - gradle_cache:/home/gradle/.gradle
     ports:
       - "3000:3000"
-    environment:
-      -
+    # environment:
+    #   -
+    env_file:
+      - .env
     depends_on:
-      - nexus-broker-one:
-          condition: service_healthy
-      - account-service-pg:
-          condition: service_healthy
+      dev-broker-one:
+        condition: service_healthy
+      account-service-pg:
+        condition: service_healthy
+      nexus-redis-one:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 10s
       timeout: 3s
       retries: 5
-
     networks:
       - nexus-backend
+
+
+
 networks:
   nexus-backend:
     driver: bridge
-
 volumes:
   redis_data:
     driver: local
   kafka1_data:
     driver: local
+  kafka1_sock:
+    driver: local
   ledger_data:
     driver: local
   account_data:
+    driver: local
+  gradle_cache:
     driver: local

@@ -184,7 +184,8 @@ coverage.xml
 
 # Env files
 .env
-.env.*   # e.g., .env.local, .env.test
+.env.dev
+# .env.*   # e.g., .env.local, .env.test
 
 # SQLite / DB files (if used for local dev)
 *.db
@@ -192,3 +193,8 @@ coverage.xml
 
 # Migrations (optional, track if you want)
 migrations/__pycache__/
+tmp/
+bin/
+build/
+__pycache__/
+CONTAINERIZATION.md

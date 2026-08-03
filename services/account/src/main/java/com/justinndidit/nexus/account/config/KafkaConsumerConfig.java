@@ -20,18 +20,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class KafkaConsumerConfig {
     //TODO: create injection objects
-    private final String groupId;
-    private final String bootstrapAddress;
+    // private final String groupId;
+    // private final String bootstrapAddress;
 
     @Bean
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(
-          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-          bootstrapAddress);
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,"dev-broker-one:9092");
         props.put(
-          ConsumerConfig.GROUP_ID_CONFIG,
-          groupId);
+          ConsumerConfig.GROUP_ID_CONFIG,"com.justinndidit.com");
         props.put(
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
           StringDeserializer.class);

@@ -8,7 +8,7 @@ public class CustomLogger {
   String serviceName;
 
   public CustomLogger(){
-    this.serviceName = "account-service";
+    this.serviceName = "nexus/account-service";
   }
 
   public void warn(String msg) {
@@ -42,6 +42,4 @@ public class CustomLogger {
     String message = this.serviceName + ": " + msg;
     Logger.error(e, message);
   }
-
-
 }
