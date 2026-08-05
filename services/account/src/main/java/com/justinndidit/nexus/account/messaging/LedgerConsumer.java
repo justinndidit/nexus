@@ -1,7 +1,7 @@
 package com.justinndidit.nexus.account.messaging;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.kafka.annotation.KafkaListener;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.justinndidit.nexus.account.config.CustomLogger;
 import com.justinndidit.nexus.account.domain.Account;
-import com.justinndidit.nexus.account.domain.ProcessedEvent;
+import com.justinndidit.nexus.account.domain.ProcessedEvents;
 import com.justinndidit.nexus.account.domain.Transaction;
 import com.justinndidit.nexus.account.dtos.TransferEvent;
 import com.justinndidit.nexus.account.repository.AccountRepository;
@@ -46,7 +46,7 @@ public class LedgerConsumer {
       }
       updateBalance(message.payload().fromAccountId(), message.payload().amount().negate());
       updateBalance(message.payload().destinationAccountId(), message.payload().amount());
-      eventRepository.save(new ProcessedEvent(message.eventId(),LocalDateTime.now()));
+      eventRepository.save(new ProcessedEvents(message.eventId(), Instant.now()));
 
       transactionRepository.save(new Transaction(
         message.payload().transactionId(),
@@ -54,7 +54,7 @@ public class LedgerConsumer {
         message.payload().destinationAccountId(),
         message.payload().currency_code(),
         message.payload().amount(),
-        LocalDateTime.now()
+        Instant.now()
       ));
 
       logger.infoWithArguments("event {} processed successfully", message.eventId());

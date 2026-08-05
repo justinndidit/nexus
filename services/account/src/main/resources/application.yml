@@ -18,6 +18,12 @@ spring:
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1800000
+  kafka:
+    # Port 9093 is the broker's DOCKER listener, advertised as dev-broker-one:9093
+    # and therefore resolvable from other containers. Port 9092 is the HOST
+    # listener, advertised as localhost:9092 - correct from your machine, wrong
+    # from inside a container.
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:dev-broker-one:9093}
   jpa:
     show-sql: false
     hibernate:

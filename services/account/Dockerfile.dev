@@ -1,8 +1,20 @@
+#FROM gradle:<jdk version>-jdk<jdk version>-<base>
 FROM gradle:9.2-jdk25-alpine
 
 # Pin the dependency cache location explicitly so it matches the
 # `gradle_cache` named volume in docker-compose.dev.yml.
-ENV GRADLE_USER_HOME=/home/gradle/.gradle
+ENV GRADLE_USER_HOME=/home/gradle/.gradle \
+    HOME=/home/gradle
+
+# compose runs this container as the HOST user (see `user:` in the compose file)
+# so that files Gradle writes into the bind-mounted repo are owned by you, not
+# root. That UID has no entry in /etc/passwd and does not match the base image's
+# gradle user (UID 1000), so make the cache tree writable by any UID.
+# Must be RECURSIVE: the base image already ships .gradle/native and
+# .gradle/notifications at mode 755, and Gradle unpacks libnative-platform.so
+# into .gradle/native on every start. Docker copies these modes onto the
+# gradle_cache volume when it seeds it - but only while that volume is empty.
+RUN mkdir -p /home/gradle/.gradle && chmod -R a+rwX /home/gradle
 
 WORKDIR /workspace
 

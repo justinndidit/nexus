@@ -177,6 +177,9 @@ services:
     build:
       context: ..
       dockerfile: services/account/Dockerfile.dev
+    # Run as the host user so Gradle's output in the bind-mounted repo is owned
+    # by you, not root. Must match `id -u`:`id -g` on the host.
+    user: "1001:1001"
     working_dir: /workspace  # sets process' current direc
     volumes:
       - ..:/workspace

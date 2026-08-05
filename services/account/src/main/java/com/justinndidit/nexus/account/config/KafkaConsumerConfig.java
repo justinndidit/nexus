@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -19,15 +20,14 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @RequiredArgsConstructor
 public class KafkaConsumerConfig {
-    //TODO: create injection objects
-    // private final String groupId;
-    // private final String bootstrapAddress;
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapAddress;
 
     @Bean
     public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(
-          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,"dev-broker-one:9092");
+          ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapAddress);
         props.put(
           ConsumerConfig.GROUP_ID_CONFIG,"com.justinndidit.com");
         props.put(

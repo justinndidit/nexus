@@ -12,10 +12,10 @@ import com.justinndidit.nexus.account.domain.Account;
 import com.justinndidit.nexus.account.domain.Transaction;
 import com.justinndidit.nexus.account.dtos.AccountDTO;
 import com.justinndidit.nexus.account.dtos.TransactionDTO;
+import com.justinndidit.nexus.account.mappers.Mappers;
 import com.justinndidit.nexus.account.repository.AccountRepository;
 import com.justinndidit.nexus.account.repository.TransactionRepository;
 import com.justinndidit.nexus.account.service.AccountService;
-import com.justinndidit.nexus.account.mapper.Mapper;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -27,7 +27,7 @@ public class AccountServiceImpl implements AccountService {
   private final AccountRepository accountRepo;
   private final TransactionRepository transactionRepo;
   private final CustomLogger logger;
-  private final Mapper mapper;
+  private final Mappers mapper;
 
   @Override
   public AccountDTO getAccountById(UUID accountId) {

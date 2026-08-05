@@ -1,16 +1,20 @@
 package com.justinndidit.nexus.account.domain;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "transactions")
 @Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class Transaction{
   @Id
@@ -22,6 +26,6 @@ public class Transaction{
   private String currencyCode;
   private BigDecimal amount;
 
-  private LocalDateTime createdAt;
+  private Instant createdAt;
 
 }

@@ -11,7 +11,13 @@ async def start_up_event():
 @app.get("/")
 async def root():
   return {
-    "message" : "Hello World!!"
+    "app" : "nexus",
+    "service": "notification service",
+    "status" : "up",
+    "healthz": {
+      "status": "healthy",
+      "message": "visit /healthz for a detailed report"
+    }
   }
 
 @app.get("/favicon.ico")
