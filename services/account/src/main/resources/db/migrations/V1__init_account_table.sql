@@ -1,4 +1,4 @@
-CREATE TABLE accounts IF NOT EXISTS(
+CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   profile_id UUID NOT NULL,
@@ -27,9 +27,10 @@ CREATE TABLE IF NOT EXISTS transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_transactions_from_acc ON transactions(from_account_id, created_at DESC);
-CREATE INDEX idx_transactions_reference ON transactions(reference);
-CREATE TABLE IF NOT EXISTS processed_event(
+CREATE INDEX IF NOT EXISTS idx_transactions_from_acc ON transactions(from_account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(reference);
+
+CREATE TABLE IF NOT EXISTS processed_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

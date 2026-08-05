@@ -1,20 +1,23 @@
 from fastapi import FastAPI
 import uvicorn
-from services.notification.app.services.push_service import get_push_service
-from services.notification.app.services.email_service import get_email_service
-from services.notification.app.services.sms_service import get_sms_service
-from services.notification.app.core.logger import get_custom_logger
+
 
 app = FastAPI()
 
-@app.on_event("startuo")
+@app.on_event("startup")
 async def start_up_event():
   pass
 
 @app.get("/")
 async def root():
   return {
-    "message" : "Hello World!!"
+    "app" : "nexus",
+    "service": "notification service",
+    "status" : "up",
+    "healthz": {
+      "status": "healthy",
+      "message": "visit /healthz for a detailed report"
+    }
   }
 
 @app.get("/favicon.ico")

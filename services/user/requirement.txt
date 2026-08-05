@@ -1,0 +1,116 @@
+Phase 1: Foundation Services (Build First)
+1. User Service (Identity & Authentication)
+
+Tech Stack: Go (for performance and concurrency in auth flows)
+
+Purpose: Central identity management, authentication, and user profile data
+Core Functionalities:
+
+    User registration and KYC workflow orchestration
+    Authentication (OAuth2/JWT token issuance)
+    User profile management (personal details, preferences)
+    Session management and device tracking
+    2FA/MFA enforcement
+
+Key APIs:
+
+    POST /api/v1/users/register - Create new user
+     controller/Handler:
+      Service Layer:
+        Successful:
+          - Check for existing email
+          - Hash Password
+          - Persist data
+          - Generate verification token
+          - Publish Event
+          - Respond with data and error (nil)
+        User already Exists:
+          - Check For Existing email
+          - respond with error
+    POST /api/v1/users/login - Authenticate user
+    POST /api/v1/users/verify-otp - Verify 2FA code
+    GET /api/v1/users/{userId}/profile - Get user profile
+    PUT /api/v1/users/{userId}/profile - Update profile
+    POST /api/v1/users/refresh-token - Refresh JWT
+
+Data Models:
+
+    User (userId, email, phoneNumber, passwordHash, kycStatus, createdAt)
+    Session (sessionId, userId, deviceId, tokenHash, expiresAt)
+    KYCDocument (documentId, userId, documentType, verificationStatus)
+
+Database:
+
+PostgreSQL (ACID compliance for user data, strong consistency required)
+Dependencies:
+
+External KYC providers (Jumio, Onfido), SMS/Email providers (Twilio, SendGrid)
+
+//sample User model
+user {
+  id uuid
+  email string
+  password_hash STRING
+  phone_number STRING
+  kyc_status KycStatus
+  user_type UserType
+  is_email_verified boolean
+  is_blocked boolean
+  created_at time
+  updated_at time
+}
+
+registerUserdto{
+  id
+  email
+  phone
+  kycstatus
+  is_email_verified
+  mfa_enabled
+}
+
+registerUserRequestdto{
+  email
+  password
+  phone
+  username
+}
+
+Profile {
+  id uuid
+  first_name string
+  last_name string
+  nickname string
+  gender
+  dob string
+  display_picture string
+  address string
+}
+
+KycStatus{
+  tier_one // default - basic limit
+  tier_two // verified phone number and nin/ address - average limit
+  tier_three // verified international passport - international transactions, max limit
+}
+
+
+UserType{
+  customer
+  manager
+  account_officer
+  customer_care
+}
+
+Session {
+  id uuid
+  user_id uuid
+  device_id string
+  token_hash string
+  refresh_token_hash string
+}
+
+Permissions {
+  id bigint
+  payload string
+  description text
+}

@@ -1,4 +1,4 @@
-package com.justinndidit.nexus.account.mapper;
+package com.justinndidit.nexus.account.mappers;
 
 import org.springframework.stereotype.Component;
 
@@ -8,7 +8,7 @@ import com.justinndidit.nexus.account.dtos.AccountDTO;
 import com.justinndidit.nexus.account.dtos.TransactionDTO;
 
 @Component
-public class Mapper {
+public class Mappers {
 
   public AccountDTO accountModelToDTO(Account account){
     return new AccountDTO(
@@ -16,7 +16,7 @@ public class Mapper {
       account.getUserId(),
       account.getProfileId(),
       account.getAccountNumber(),
-      account.getCurrency(),
+      account.getCurrencyCode(),
       account.getAccountType(),
       account.getAccountStatus(),
       account.getAvailableBalance()

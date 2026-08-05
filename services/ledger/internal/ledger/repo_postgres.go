@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justinndidit/nexus/ledger/internal/ledger/domain"
 	"github.com/rs/zerolog"
-	"github.com/shopspring/decimal"
 )
 
 type PostgresRepository struct {
@@ -75,7 +74,7 @@ func (pr *PostgresRepository) CopyFrom(ctx context.Context, tableName pgx.Identi
 func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction domain.CreateTransactionRequest) (*domain.Transaction, error) {
 	stmt := `
 		INSERT INTO transactions(from_account_id, destination_account_id,reference, session_id, currency_code, description, status, amount)
-		VALUES(@accountID, @destinationAccountID,@reference, @sessionID, @currencyCode, @description, @status, @amount)
+		VALUES(@fromAccountID, @destinationAccountID,@reference, @sessionID, @currencyCode, @description, @status, @amount)
 		RETURNING *
 	`
 
@@ -87,7 +86,7 @@ func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction
 		"currencyCode":         transaction.Currency,
 		"description":          transaction.Description,
 		"status":               transaction.Status,
-		"amount":               transaction.Amount,
+		"amount":               transaction.AmountMinorUnits,
 	})
 	if err != nil {
 		pr.logger.Error().Err(err).Msg("failed to execute sql statement")
@@ -106,15 +105,15 @@ func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction
 
 func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []domain.LedgerEntry) error {
 	stmt := `
-		INSERT INTO Ledger_entries(transaction_id, account_id, entry_type, amount, currency, idempotency_key)
-		VALUES (@transaction_id, @account_id, @entry_type, @amount, @currency, @idempotency_key)
+		INSERT INTO ledger_entries(transaction_id, account_id, entry_type, amount, currency_code, idempotency_key)
+		VALUES (@transaction_id, @account_id, @entry_type, @amount, @currency_code, @idempotency_key)
 	`
 	for _, entry := range entries {
 		cmd, err := pr.Exec(ctx, stmt, pgx.NamedArgs{
 			"transaction_id":  entry.TransactionID,
 			"account_id":      entry.AccountID,
-			"amount":          entry.Amount,
-			"currency":        entry.Currency,
+			"amount":          entry.AmountMinorUnits,
+			"currency_code":   entry.Currency,
 			"idempotency_key": entry.IdempotencyKey,
 		})
 
@@ -131,13 +130,13 @@ func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []d
 
 func (pr *PostgresRepository) CreateLedgerEntryBulk(ctx context.Context, entries []domain.LedgerEntry) error {
 
-	copyCount, err := pr.CopyFrom(ctx, pgx.Identifier{"ledger_entry"}, []string{
-		"transaction_id", "session_id", "account_id", "amount", "entry_type",
-		"currency", "status",
+	copyCount, err := pr.CopyFrom(ctx, pgx.Identifier{"ledger_entries"}, []string{
+		"transaction_id", "idempotency_key", "account_id", "amount", "entry_type",
+		"currency_code", "status",
 	},
 		pgx.CopyFromSlice(len(entries), func(i int) ([]any, error) {
 			return []any{entries[i].TransactionID, entries[i].IdempotencyKey, entries[i].AccountID,
-				entries[i].Amount, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
+				entries[i].AmountMinorUnits, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
 		}))
 
 	if err != nil {
@@ -154,16 +153,15 @@ func (pr *PostgresRepository) CreateLedgerEntryBulk(ctx context.Context, entries
 }
 
 func (pr *PostgresRepository) GetAccountForUpdate(ctx context.Context, accountID string) (*domain.Account, error) {
-	var account domain.Account
 	stmt := `
-		SELECT (id,available_balance, ledger_balance, version)
+		SELECT id, available_balance, ledger_balance, version
 		FROM accounts
-		WHERE account_id = @account_id
+		WHERE id = @account_id
 		FOR UPDATE
 	`
-	err := pr.QueryRow(ctx, stmt, pgx.NamedArgs{
+	rows, err := pr.Query(ctx, stmt, pgx.NamedArgs{
 		"account_id": accountID,
-	}).Scan(&account)
+	})
 
 	if err != nil {
 		pr.logger.Error().Err(err).Msg("failed to retrieve account")
@@ -173,10 +171,19 @@ func (pr *PostgresRepository) GetAccountForUpdate(ctx context.Context, accountID
 		return nil, err
 	}
 
+	account, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[domain.Account])
+	if err != nil {
+		pr.logger.Error().Err(err).Msg("failed to collect account")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("account with id %s does not exist", accountID)
+		}
+		return nil, err
+	}
+
 	return &account, nil
 }
 
-func (pr *PostgresRepository) UpdateBalance(ctx context.Context, accountID string, amount decimal.Decimal) error {
+func (pr *PostgresRepository) UpdateBalance(ctx context.Context, accountID string, amount int64) error {
 	stmt := `
 		UPDATE accounts SET available_balance = available_balance + @amount
 		WHERE id = @accountID

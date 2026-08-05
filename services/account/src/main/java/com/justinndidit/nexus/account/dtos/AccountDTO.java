@@ -8,8 +8,8 @@ public record AccountDTO(
   UUID userId,
   UUID profileId,
   String accountNumber,
-  String currency,
+  String currencyCode,
   String accountType,
   String accountStatus,
-  BigDecimal availabelBalance
+  BigDecimal availableBalance
 ) {}

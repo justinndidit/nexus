@@ -1,15 +1,28 @@
-FROM python:3.12-slim
+# Must satisfy requires-python = ">=3.13" in pyproject.toml / .python-version
+FROM python:3.13-slim
+
+# uv ships as a static binary in its own image - no pip bootstrap needed
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# UV_PROJECT_ENVIRONMENT: put the venv OUTSIDE /app. uv's default is /app/.venv,
+# which the compose bind-mount of the source tree would hide at runtime.
+# UV_PYTHON_DOWNLOADS=never: use this image's interpreter, don't fetch a second one.
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    PATH=/opt/venv/bin:$PATH
 
 WORKDIR /app
 
-# Install system dependencies if needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libc-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Only the manifests, so this layer stays cached until dependencies change.
+# --locked fails the build if uv.lock is out of sync with pyproject.toml.
+COPY services/notification/pyproject.toml services/notification/uv.lock ./
+RUN uv sync --locked
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+EXPOSE 3002
 
-# uvicorn --reload watches for .py file changes
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3002", "--reload"]
+# --reload-dir scopes the file watcher to the source package; without it uvicorn
+# walks everything else the bind mount exposes.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3002", \
+     "--reload", "--reload-dir", "/app/app"]
