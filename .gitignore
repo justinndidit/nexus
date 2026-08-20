@@ -198,3 +198,5 @@ bin/
 build/
 __pycache__/
 CONTAINERIZATION.md
+
+docs/
