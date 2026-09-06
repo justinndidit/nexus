@@ -23,16 +23,18 @@ const (
 	OutboxPriorityLow    OutboxEventPriority = 0
 )
 
-type Money struct {
-	Currency         string `json:"currency_code" db:"currency_code" validate:"required,len=3"`
-	AmountMinorUnits int64  `json:"amount" db:"amount" validate:"required,gt=0"`
-}
+// // Unnecessary - Money is now treated in the lowest denomination of currency as an int64
+// type Money struct {
+// 	Currency string `json:"currency_code" db:"currency_code" validate:"required,len=3"`
+// 	Unit     int64  `json:"unit" db:"unit" validate:"required"`
+// 	Nanos    int64  `json:"nanos" db:"nanos" validate:"required,gte=0,lte=999999999"`
+// }
 
 type TransferRequest struct {
 	FromAccountID        uuid.UUID        `json:"from_account_id" db:"from_account_id" validate:"required"`
 	DestinationAccountID uuid.UUID        `json:"destination_account_id" db:"destination_account_id" validate:"required"`
 	IdempotencyKey       string           `json:"idempotency_key" db:"idempotency_key" validate:"required"`
-	Money                Money            `json:"money" validate:"required"`
+	AmountInMinorUnit    int64            `json:"amount" validate:"required"`
 	Meta                 TransferMetaData `json:"meta,omitempty" db:"meta"`
 }
 

@@ -30,7 +30,7 @@ func NewLegerService(r Repository, txManager TransactionManager, v validator.Val
 func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest) error {
 	err := s.validator.Struct(req)
 	if err != nil {
-		s.logger.Error().Err(err).Str("func", "transfer").Msg("failed to validate transfer request data")
+		s.logger.Error().Err(err).Str("func", "Transfer").Msg("failed to validate transfer request data")
 		return err
 	}
 
@@ -57,6 +57,7 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 
 	/*
 		Sort account ids in order to prevent deadlocks - Lock ordering
+		This guarantees locks are synchronized and always in one direction.
 	*/
 	firstAccount, secondAccount := utils.SortAccount(req.DestinationAccountID.String(), req.FromAccountID.String())
 
@@ -132,10 +133,10 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			TransactionID:    newTx.ID,
 			AccountID:        req.FromAccountID,
 			EntryType:        string(domain.TRANSACTION_DEBIT),
-			AmountMinorUnits: req.Money.AmountMinorUnits,
+			AmountMinorUnits: transferAmountDecimal,
 			Currency:         req.Money.Currency,
-			// IdempotencyKey:   req.IdempotencyKey,
-			Status: string(domain.TRANSACTION_PENDING),
+			IdempotencyKey:   req.IdempotencyKey,
+			Status:           string(domain.TRANSACTION_PENDING),
 		}
 
 		//represents recipient

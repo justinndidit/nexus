@@ -113,7 +113,7 @@ func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []d
 			"transaction_id": entry.TransactionID,
 			"account_id":     entry.AccountID,
 			"amount":         entry.AmountMinorUnits,
-			"currency_code":  entry.Currency,
+			"currency":       entry.Currency,
 			// "idempotency_key": entry.IdempotencyKey,
 		})
 
@@ -135,7 +135,7 @@ func (pr *PostgresRepository) CreateLedgerEntryBulk(ctx context.Context, entries
 		"currency_code", "status",
 	}, //Remove idempotency - transaction already carries idempotency key
 		pgx.CopyFromSlice(len(entries), func(i int) ([]any, error) {
-			return []any{entries[i].TransactionID /*, entries[i].IdempotencyKey*/, entries[i].AccountID,
+			return []any{entries[i].TransactionID, entries[i].AccountID,
 				entries[i].AmountMinorUnits, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
 		}))
 
@@ -321,21 +321,27 @@ func (pr *PostgresRepository) MarkEventProcessed(ctx context.Context, id string)
 func (tm *PostgresTransactionManager) WithTransaction(ctx context.Context, fn func(repo Repository) error) error {
 	tx, err := tm.pool.Begin(ctx)
 	if err != nil {
-		tm.logger.Error().Err(err).Msg("failed to begin transaction")
+		tm.logger.Error().Err(err).Str("func", "WithTransaction").Msg("failed to begin transaction")
 		return err
 	}
 
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
+			txErr := tx.Rollback(ctx)
+			if txErr != nil {
+				tm.logger.Error().Err(txErr).Str("func", "WithTransaction").Msg("failed to rollback transaction")
+			}
 			panic(p)
 		}
 	}()
 
-	repo := NewPostgresRepo(tm.pool, tm.logger, tx)
+	repo := NewPostgresRepo(tm.pool, tm.logger, tx)S
 
 	if err = fn(repo); err != nil {
-		_ = tx.Rollback(ctx)
+		txErr := tx.Rollback(ctx)
+		if txErr != nil {
+			tm.logger.Error().Err(txErr).Str("func", "WithTransaction").Msg("failed to rollback transaction")
+		}
 		return err
 	}
 
