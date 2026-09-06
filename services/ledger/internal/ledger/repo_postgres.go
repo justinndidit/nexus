@@ -110,11 +110,11 @@ func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []d
 	`
 	for _, entry := range entries {
 		cmd, err := pr.Exec(ctx, stmt, pgx.NamedArgs{
-			"transaction_id":  entry.TransactionID,
-			"account_id":      entry.AccountID,
-			"amount":          entry.AmountMinorUnits,
-			"currency_code":   entry.Currency,
-			"idempotency_key": entry.IdempotencyKey,
+			"transaction_id": entry.TransactionID,
+			"account_id":     entry.AccountID,
+			"amount":         entry.AmountMinorUnits,
+			"currency_code":  entry.Currency,
+			// "idempotency_key": entry.IdempotencyKey,
 		})
 
 		if err != nil {
@@ -133,9 +133,9 @@ func (pr *PostgresRepository) CreateLedgerEntryBulk(ctx context.Context, entries
 	copyCount, err := pr.CopyFrom(ctx, pgx.Identifier{"ledger_entries"}, []string{
 		"transaction_id", "idempotency_key", "account_id", "amount", "entry_type",
 		"currency_code", "status",
-	},
+	}, //Remove idempotency - transaction already carries idempotency key
 		pgx.CopyFromSlice(len(entries), func(i int) ([]any, error) {
-			return []any{entries[i].TransactionID, entries[i].IdempotencyKey, entries[i].AccountID,
+			return []any{entries[i].TransactionID /*, entries[i].IdempotencyKey*/, entries[i].AccountID,
 				entries[i].AmountMinorUnits, entries[i].EntryType, entries[i].Currency, entries[i].Status}, nil
 		}))
 

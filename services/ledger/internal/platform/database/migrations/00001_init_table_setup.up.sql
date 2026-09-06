@@ -49,7 +49,7 @@ CREATE TABLE ledger_entries (
   currency_code VARCHAR(3) NOT NULL DEFAULT 'NGN',
   status VARCHAR(15) NOT NULL DEFAULT 'POSTED',
 
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_ledger_account ON ledger_entries(account_id, created_at);
 CREATE INDEX idx_ledger_transaction ON ledger_entries(transaction_id);

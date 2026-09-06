@@ -134,8 +134,8 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			EntryType:        string(domain.TRANSACTION_DEBIT),
 			AmountMinorUnits: req.Money.AmountMinorUnits,
 			Currency:         req.Money.Currency,
-			IdempotencyKey:   req.IdempotencyKey,
-			Status:           string(domain.TRANSACTION_PENDING),
+			// IdempotencyKey:   req.IdempotencyKey,
+			Status: string(domain.TRANSACTION_PENDING),
 		}
 
 		//represents recipient
@@ -145,8 +145,8 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			EntryType:        string(domain.TRANSACTION_CREDIT),
 			AmountMinorUnits: req.Money.AmountMinorUnits,
 			Currency:         req.Money.Currency,
-			IdempotencyKey:   req.IdempotencyKey,
-			Status:           string(domain.TRANSACTION_PENDING),
+			// IdempotencyKey:   req.IdempotencyKey,
+			Status: string(domain.TRANSACTION_PENDING),
 		}
 
 		return repo.CreateLedgerEntry(ctx, entries)
