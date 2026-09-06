@@ -30,7 +30,7 @@ func NewLegerService(r Repository, txManager TransactionManager, v validator.Val
 func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest) error {
 	err := s.validator.Struct(req)
 	if err != nil {
-		s.logger.Error().Err(err).Msg("failed to validate transfer request data")
+		s.logger.Error().Err(err).Str("func", "transfer").Msg("failed to validate transfer request data")
 		return err
 	}
 

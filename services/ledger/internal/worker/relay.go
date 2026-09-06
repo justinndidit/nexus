@@ -44,7 +44,7 @@ func (w *RelayWorker) processBatch(ctx context.Context) {
 		w.logger.Error().Err(err).Msg("failed to fetch outbox events")
 		return
 	}
-
+	//TODO: wrap with context?!!
 	for _, event := range events {
 		payload := broker.PublisherPayload{
 			EventID: event.ID,

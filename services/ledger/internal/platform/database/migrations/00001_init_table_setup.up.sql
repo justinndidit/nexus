@@ -16,7 +16,7 @@ CREATE TABLE accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ
 );
-
+CREATE INDEX idx_accounts_account_number ON accounts(account_number);
 
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,15 +33,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  CONSTRAINT uq_transactions_session UNIQUE (session_id),
-
+  CONSTRAINT uq_transactions_session UNIQUE (session_id)
 );
-
-CREATE UNIQUE INDEX uq_transactions_session ON transactions(session_id);
+CREATE UNIQUE INDEX uq_idx_transactions_session ON transactions(session_id);
 CREATE INDEX idx_transactions_account ON transactions(account_id, created_at DESC);
 CREATE INDEX idx_transactions_reference ON transactions(reference);
-
-
 
 CREATE TABLE ledger_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -55,11 +51,8 @@ CREATE TABLE ledger_entries (
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 );
-
 CREATE INDEX idx_ledger_account ON ledger_entries(account_id, created_at);
 CREATE INDEX idx_ledger_transaction ON ledger_entries(transaction_id);
-
-
 
 CREATE TABLE outbox_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
