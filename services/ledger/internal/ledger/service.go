@@ -11,6 +11,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	ServiceName = "ledger service"
+)
+
 type LedgerService struct {
 	repo      Repository
 	txManager TransactionManager
@@ -27,29 +31,25 @@ func NewLegerService(r Repository, txManager TransactionManager, v validator.Val
 	}
 }
 
-func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest) error {
+func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest) (*domain.TransferResponse, error) {
 	err := s.validator.Struct(req)
 	if err != nil {
 		s.logger.Error().Err(err).Str("func", "Transfer").Msg("failed to validate transfer request data")
-		return err
+		return nil, err
 	}
 
-	if s.isInterBankTransfer(req) {
-		return s.InterBankTransfer(ctx, req)
-	}
-
-	return s.IntraBankTransfer(ctx, req)
+	return s.baseTransfer(ctx, req, s.isInterBankTransfer(req))
 }
 
-func (s LedgerService) IntraBankTransfer(ctx context.Context, req domain.TransferRequest) error {
-	return s.baseTransfer(ctx, req)
+func (s LedgerService) IntraBankTransfer(ctx context.Context, req domain.TransferRequest) (*domain.TransferResponse, error) {
+	return s.baseTransfer(ctx, req, true)
 }
 
-func (s LedgerService) InterBankTransfer(ctx context.Context, req domain.TransferRequest) error {
-	return s.baseTransfer(ctx, req)
+func (s LedgerService) InterBankTransfer(ctx context.Context, req domain.TransferRequest) (*domain.TransferResponse, error) {
+	return s.baseTransfer(ctx, req, false)
 }
 
-func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequest) error {
+func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequest, isIntraBank bool) (*domain.TransferResponse, error) {
 	description := ""
 	if rawDescription, ok := req.Meta["Description"]; ok {
 		description, _ = rawDescription.(string)
@@ -60,8 +60,8 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 		This guarantees locks are synchronized and always in one direction.
 	*/
 	firstAccount, secondAccount := utils.SortAccount(req.DestinationAccountID.String(), req.FromAccountID.String())
-
-	return s.txManager.WithTansaction(ctx, func(repo Repository) error {
+	var response domain.TransferResponse
+	err := s.txManager.WithTansaction(ctx, func(repo Repository) error {
 
 		accounts := make(map[string]*domain.Account)
 
@@ -77,18 +77,13 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 
 		sender := accounts[req.FromAccountID.String()]
 
-		if sender.AvailableBalanceMinorUnits < req.Money.AmountMinorUnits {
+		if sender.AvailableBalanceMinorUnits < req.AmountMinorUnit {
 			s.logger.Error().Msgf("sender %s has insufficient balance", sender.ID)
 			return errors.New("insufficient funds")
 		}
 
-		if err := repo.UpdateBalance(ctx, req.FromAccountID.String(), (-1 * req.Money.AmountMinorUnits)); err != nil {
+		if err := repo.UpdateBalance(ctx, req.FromAccountID.String(), (-1 * req.AmountMinorUnit)); err != nil {
 			s.logger.Error().Err(err).Msgf("failed to update account %s", req.FromAccountID)
-			return err
-		}
-
-		if err := repo.UpdateBalance(ctx, req.DestinationAccountID.String(), req.Money.AmountMinorUnits); err != nil {
-			s.logger.Error().Err(err).Msgf("failed to update account %s", req.DestinationAccountID)
 			return err
 		}
 
@@ -96,10 +91,20 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			FromAccountID:        req.FromAccountID,
 			DestinationAccountID: req.DestinationAccountID,
 			SessionID:            req.IdempotencyKey,
-			Currency:             req.Money.Currency,
+			Currency:             req.CurrencyCode,
 			Description:          description,
 			Status:               string(domain.TRANSACTION_PENDING),
-			AmountMinorUnits:     req.Money.AmountMinorUnits,
+			AmountMinorUnits:     req.AmountMinorUnit,
+		}
+
+		if isIntraBank {
+			if err := repo.UpdateBalance(ctx, req.DestinationAccountID.String(), req.AmountMinorUnit); err != nil {
+				s.logger.Error().Err(err).Msgf("failed to update account %s", req.DestinationAccountID)
+				return err
+			}
+			tx.Status = string(domain.TRANSACTION_COMPLETED)
+		} else {
+			//payment gate way
 		}
 
 		newTx, err := repo.CreateTransaction(ctx, tx)
@@ -107,20 +112,20 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			s.logger.Error().Err(err).Msg("failed to create transaction record")
 			return err
 		}
+
 		outboxEvent := domain.CreateOutboxEventRequest{
 			EventType: domain.EventMoneyTransfer,
 			Payload: domain.TransactionEventPayload{
 				TransactionID:        newTx.ID,
 				FromAccountID:        req.FromAccountID,
 				DestinationAccountID: req.DestinationAccountID,
-				AmountMinorUnits:     req.Money.AmountMinorUnits,
-				Currency:             req.Money.Currency,
+				AmountMinorUnits:     req.AmountMinorUnit,
+				Currency:             req.CurrencyCode,
 			},
 			Status:         domain.OutboxEventPending,
 			IdempotencyKey: req.IdempotencyKey,
 			Priority:       domain.OutboxPriorityHigh,
-			//TODO:Convert this to a variable in config
-			Producer: "ledger service",
+			Producer:       ServiceName,
 		}
 		if err := repo.CreateOutBoxEvent(ctx, outboxEvent); err != nil {
 			s.logger.Error().Err(err).Msg("failed to create event")
@@ -133,10 +138,10 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			TransactionID:    newTx.ID,
 			AccountID:        req.FromAccountID,
 			EntryType:        string(domain.TRANSACTION_DEBIT),
-			AmountMinorUnits: transferAmountDecimal,
-			Currency:         req.Money.Currency,
-			IdempotencyKey:   req.IdempotencyKey,
-			Status:           string(domain.TRANSACTION_PENDING),
+			AmountMinorUnits: req.AmountMinorUnit,
+			Currency:         req.CurrencyCode,
+			// IdempotencyKey:   req.IdempotencyKey,
+			Status: string(domain.TRANSACTION_PENDING),
 		}
 
 		//represents recipient
@@ -144,14 +149,19 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			TransactionID:    newTx.ID,
 			AccountID:        req.DestinationAccountID,
 			EntryType:        string(domain.TRANSACTION_CREDIT),
-			AmountMinorUnits: req.Money.AmountMinorUnits,
-			Currency:         req.Money.Currency,
+			AmountMinorUnits: req.AmountMinorUnit,
+			Currency:         req.CurrencyCode,
 			// IdempotencyKey:   req.IdempotencyKey,
 			Status: string(domain.TRANSACTION_PENDING),
 		}
-
+		response = domain.TransferResponse{
+			TransactionID: newTx.ID.String(),
+			SessionID:     req.IdempotencyKey,
+		}
 		return repo.CreateLedgerEntry(ctx, entries)
 	})
+
+	return &response, err
 }
 
 func (s LedgerService) isInterBankTransfer(req domain.TransferRequest) bool {

@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -34,13 +36,20 @@ type TransferRequest struct {
 	FromAccountID        uuid.UUID        `json:"from_account_id" db:"from_account_id" validate:"required"`
 	DestinationAccountID uuid.UUID        `json:"destination_account_id" db:"destination_account_id" validate:"required"`
 	IdempotencyKey       string           `json:"idempotency_key" db:"idempotency_key" validate:"required"`
-	AmountInMinorUnit    int64            `json:"amount" validate:"required"`
+	AmountMinorUnit      int64            `json:"amount" validate:"required gte=100"`
+	CurrencyCode         string           `json:"currency" validate:"required"`
 	Meta                 TransferMetaData `json:"meta,omitempty" db:"meta"`
-}
+
 
 type TransferResponse struct {
-	TransactionID string            `json:"transaction_id" db:"transaction_id"`
-	Status        TransactionStatus `json:"status" db:"status"`
+	TransactionID    string            `json:"transaction_id"`
+	SessionID        string            `json:"session_id"`
+	RecipientAccount string            `json:"recipient_account"`
+	SourceAccount    string            `json:"source_account"`
+	CurrencyCode     string            `json:"currency_code"`
+	Status           TransactionStatus `json:"status"`
+	Amount           int64             `json:"amount"`
+	CreatedAt        time.Time         `json:"created_at"`
 }
 
 type CreateTransactionRequest struct {

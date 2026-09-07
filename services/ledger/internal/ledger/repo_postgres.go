@@ -105,7 +105,8 @@ func (pr *PostgresRepository) CreateTransaction(ctx context.Context, transaction
 
 func (pr *PostgresRepository) CreateLedgerEntry(ctx context.Context, entries []domain.LedgerEntry) error {
 	stmt := `
-		INSERT INTO ledger_entries(transaction_id, account_id, entry_type, amount, currency_code, idempotency_key)
+		INSERT INTO ledger_en
+		tries(transaction_id, account_id, entry_type, amount, currency_code, idempotency_key)
 		VALUES (@transaction_id, @account_id, @entry_type, @amount, @currency_code, @idempotency_key)
 	`
 	for _, entry := range entries {
@@ -164,10 +165,11 @@ func (pr *PostgresRepository) GetAccountForUpdate(ctx context.Context, accountID
 	})
 
 	if err != nil {
-		pr.logger.Error().Err(err).Msg("failed to retrieve account")
 		if errors.Is(err, pgx.ErrNoRows) {
+			pr.logger.Warn().Str("func", "GetAccountForUpdate").Msgf("account with id %s does not exist", accountID)
 			return nil, fmt.Errorf("account with id %s does not exist", accountID)
 		}
+		pr.logger.Error().Err(err).Str("func", "GetAccountForUpdate").Msg("failed to retrieve account")
 		return nil, err
 	}
 
@@ -230,10 +232,6 @@ func (pr *PostgresRepository) CreateOutBoxEvent(ctx context.Context, payload dom
 
 	return nil
 }
-
-// func (pr *PostgresRepository) GetOutBoxEvent(ctx context.Context, ID string) (*domain.OutBoxEvent, error) {
-// 	return nil, nil
-// }
 
 func (pr *PostgresRepository) GetOutBoxEventsForUpdate(ctx context.Context) ([]domain.OutBoxEvent, error) {
 	stmt := `
@@ -335,7 +333,7 @@ func (tm *PostgresTransactionManager) WithTransaction(ctx context.Context, fn fu
 		}
 	}()
 
-	repo := NewPostgresRepo(tm.pool, tm.logger, tx)S
+	repo := NewPostgresRepo(tm.pool, tm.logger, tx)
 
 	if err = fn(repo); err != nil {
 		txErr := tx.Rollback(ctx)

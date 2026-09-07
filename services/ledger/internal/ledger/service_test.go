@@ -143,10 +143,7 @@ func validTransferRequest() domain.TransferRequest {
 		FromAccountID:        uuid.MustParse("33333333-3333-3333-3333-333333333333"),
 		DestinationAccountID: uuid.MustParse("11111111-1111-1111-1111-111111111111"),
 		IdempotencyKey:       "idem-123",
-		Money: domain.Money{
-			Currency:         "NGN",
-			AmountMinorUnits: 1500,
-		},
+		AmountMinorUnit:      1500,
 		Meta: domain.TransferMetaData{
 			"Description":   "invoice payment",
 			"transfer_type": "interbank",
@@ -159,7 +156,7 @@ func TestLedgerService_Transfer_ValidationFails(t *testing.T) {
 	txManager := &fakeTransactionManager{repo: repo}
 	service := newTestService(repo, txManager)
 
-	err := service.Transfer(context.Background(), domain.TransferRequest{})
+	_, err := service.Transfer(context.Background(), domain.TransferRequest{})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -184,7 +181,7 @@ func TestLedgerService_Transfer_Success(t *testing.T) {
 	txManager := &fakeTransactionManager{repo: repo}
 	service := newTestService(repo, txManager)
 
-	err := service.Transfer(context.Background(), request)
+	_, err := service.Transfer(context.Background(), request)
 	if err != nil {
 		t.Fatalf("expected transfer to succeed, got error: %v", err)
 	}
@@ -218,8 +215,8 @@ func TestLedgerService_Transfer_Success(t *testing.T) {
 	}
 
 	createdTx := repo.transactions[0]
-	if createdTx.AmountMinorUnits != request.Money.AmountMinorUnits {
-		t.Fatalf("expected transaction amount %d, got %d", request.Money.AmountMinorUnits, createdTx.AmountMinorUnits)
+	if createdTx.AmountMinorUnits != request.AmountMinorUnit {
+		t.Fatalf("expected transaction amount %d, got %d", request.AmountMinorUnit, createdTx.AmountMinorUnits)
 	}
 	if createdTx.Description != "invoice payment" {
 		t.Fatalf("expected transaction description to be copied from metadata, got %q", createdTx.Description)
@@ -232,8 +229,8 @@ func TestLedgerService_Transfer_Success(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected outbox payload to be TransactionEventPayload, got %T", repo.outboxEvents[0].Payload)
 	}
-	if payload.AmountMinorUnits != request.Money.AmountMinorUnits {
-		t.Fatalf("expected outbox amount %d, got %d", request.Money.AmountMinorUnits, payload.AmountMinorUnits)
+	if payload.AmountMinorUnits != request.AmountMinorUnit {
+		t.Fatalf("expected outbox amount %d, got %d", request.AmountMinorUnit, payload.AmountMinorUnits)
 	}
 
 	if len(repo.ledgerEntries) != 1 {
@@ -247,8 +244,8 @@ func TestLedgerService_Transfer_Success(t *testing.T) {
 		t.Fatalf("unexpected ledger entry types: %#v", entries)
 	}
 	for _, entry := range entries {
-		if entry.AmountMinorUnits != request.Money.AmountMinorUnits {
-			t.Fatalf("expected ledger entry amount %d, got %d", request.Money.AmountMinorUnits, entry.AmountMinorUnits)
+		if entry.AmountMinorUnits != request.AmountMinorUnit {
+			t.Fatalf("expected ledger entry amount %d, got %d", request.AmountMinorUnit, entry.AmountMinorUnits)
 		}
 	}
 }
@@ -268,7 +265,7 @@ func TestLedgerService_Transfer_InsufficientFunds(t *testing.T) {
 	txManager := &fakeTransactionManager{repo: repo}
 	service := newTestService(repo, txManager)
 
-	err := service.Transfer(context.Background(), request)
+	_, err := service.Transfer(context.Background(), request)
 	if err == nil {
 		t.Fatal("expected insufficient funds error, got nil")
 	}
