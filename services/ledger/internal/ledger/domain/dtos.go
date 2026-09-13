@@ -23,10 +23,10 @@ const (
 	OutboxPriorityLow    OutboxEventPriority = 0
 )
 
-type Money struct {
-	Currency         string `json:"currency_code" db:"currency_code" validate:"required,len=3"`
-	AmountMinorUnits int64  `json:"amount" db:"amount" validate:"required,gt=0"`
-}
+// type Money struct {
+// 	Currency         string `json:"currency_code" db:"currency_code" validate:"required,len=3"`
+// 	AmountMinorUnits int64  `json:"amount" db:"amount" validate:"required,gt=0"`
+// }
 
 type TransferRequest struct {
 	FromAccountID        uuid.UUID        `json:"from_account_id" db:"from_account_id" validate:"required"`
@@ -45,7 +45,7 @@ type CreateTransactionRequest struct {
 	FromAccountID        uuid.UUID `db:"from_account_id" json:"from_account_id"`
 	DestinationAccountID uuid.UUID `db:"destination_account_id" json:"destination_account_id"`
 	Reference            string    `db:"reference" json:"reference,omitempty"`
-	SessionID            string    `db:"session_id" json:"session_id"`
+	IdempotencyKey       string    `db:"idempotency_key" json:"idempotency_key"`
 	Currency             string    `db:"currency_code" json:"currency_code"`
 	Description          string    `db:"description" json:"description omitempty"`
 	Status               string    `db:"status" json:"status"`
