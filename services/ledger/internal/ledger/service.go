@@ -3,27 +3,28 @@ package ledger
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/justinndidit/nexus/ledger/internal/ledger/domain"
-	"github.com/justinndidit/nexus/ledger/internal/platform/utils"
+	"github.com/justinndidit/nexus/ledger/internal/ledger/repository"
 	"github.com/rs/zerolog"
 )
 
 type LedgerService struct {
-	repo      Repository
-	txManager TransactionManager
 	validator validator.Validate
 	logger    *zerolog.Logger
+	txManager repository.TransactionManager
+	stores    *repository.PostgresStores
 }
 
-func NewLegerService(r Repository, txManager TransactionManager, v validator.Validate, log *zerolog.Logger) *LedgerService {
+func NewLegerService(tm repository.TransactionManager, stores *repository.PostgresStores, v validator.Validate, log *zerolog.Logger) *LedgerService {
 	return &LedgerService{
-		repo:      r,
-		txManager: txManager,
 		validator: v,
 		logger:    log,
+		txManager: tm,
+		stores:    stores,
 	}
 }
 
@@ -42,30 +43,26 @@ func (s LedgerService) Transfer(ctx context.Context, req domain.TransferRequest)
 }
 
 func (s LedgerService) IntraBankTransfer(ctx context.Context, req domain.TransferRequest) error {
-	return s.baseTransfer(ctx, req)
-}
-
-func (s LedgerService) InterBankTransfer(ctx context.Context, req domain.TransferRequest) error {
-	return s.baseTransfer(ctx, req)
-}
-
-func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequest) error {
+	if req.DestinationAccountID == req.FromAccountID {
+		s.logger.Error().Str("func", "IntranBankTransfer").Msg("self transfer is not allowed")
+		return fmt.Errorf("self transfer is not allowed")
+	}
 	description := ""
 	if rawDescription, ok := req.Meta["Description"]; ok {
 		description, _ = rawDescription.(string)
 	}
 
 	/*
-		Sort account ids in order to prevent deadlocks - Lock ordering
+		Lock Ordering: To prevent deadlocks
+		Basically we sort the account numbers in ascending order, so regardless of transaction direction,
+		we lock the pair of accounts in the same order, giving a deterministic behavior.
 	*/
-	firstAccount, secondAccount := utils.SortAccount(req.DestinationAccountID.String(), req.FromAccountID.String())
-
-	return s.txManager.WithTansaction(ctx, func(repo Repository) error {
-
+	firstAccount, secondAccount := sortAccount(req.DestinationAccountID.String(), req.FromAccountID.String())
+	return s.txManager.WithTransaction(ctx, func(stores repository.PostgresStores) error {
 		accounts := make(map[string]*domain.Account)
 
 		for _, accountID := range []string{firstAccount, secondAccount} {
-			account, err := repo.GetAccountForUpdate(ctx, accountID)
+			account, err := stores.AccountStore.GetAccountForUpdate(ctx, accountID)
 
 			if err != nil {
 				s.logger.Error().Err(err).Msgf("failed to fetch account with id %s for update", accountID)
@@ -74,19 +71,37 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			accounts[accountID] = account
 		}
 
+		txCurrency := string(req.Money.CurrencyCode)
 		sender := accounts[req.FromAccountID.String()]
+		receiver := accounts[req.DestinationAccountID.String()]
+
+		existingTx, err := stores.TransactionStore.GetTransactionBySessionID(ctx, req.IdempotencyKey)
+		if err != nil {
+			s.logger.Error().Err(err).Str("func", "IntraBankTransfer").Msgf("failed to fetch transaction with session id: %s", req.IdempotencyKey)
+			return err
+		}
+
+		if existingTx != nil {
+			s.logger.Error().Str("func", "IntraBankTransfer").Msgf("transfer with session id %s already exists", req.IdempotencyKey)
+			return fmt.Errorf("duplicate transaction")
+		}
+
+		if sender.Currency != txCurrency || receiver.Currency != txCurrency {
+			s.logger.Error().Str("func", "IntrabankTransfer").Msg("invalid currency transaction")
+			return fmt.Errorf("invalid currency transaction")
+		}
 
 		if sender.AvailableBalanceMinorUnits < req.Money.AmountMinorUnits {
-			s.logger.Error().Msgf("sender %s has insufficient balance", sender.ID)
+			s.logger.Error().Str("func", "IntraBankTransfer").Msgf("sender %s has insufficient balance", sender.ID)
 			return errors.New("insufficient funds")
 		}
 
-		if err := repo.UpdateBalance(ctx, req.FromAccountID.String(), (-1 * req.Money.AmountMinorUnits)); err != nil {
+		if err := stores.AccountStore.UpdateBalance(ctx, req.FromAccountID.String(), (-1 * req.Money.AmountMinorUnits)); err != nil {
 			s.logger.Error().Err(err).Msgf("failed to update account %s", req.FromAccountID)
 			return err
 		}
 
-		if err := repo.UpdateBalance(ctx, req.DestinationAccountID.String(), req.Money.AmountMinorUnits); err != nil {
+		if err := stores.AccountStore.UpdateBalance(ctx, req.DestinationAccountID.String(), req.Money.AmountMinorUnits); err != nil {
 			s.logger.Error().Err(err).Msgf("failed to update account %s", req.DestinationAccountID)
 			return err
 		}
@@ -94,14 +109,14 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 		tx := domain.CreateTransactionRequest{
 			FromAccountID:        req.FromAccountID,
 			DestinationAccountID: req.DestinationAccountID,
-			SessionID:            req.IdempotencyKey,
-			Currency:             req.Money.Currency,
+			IdempotencyKey:       req.IdempotencyKey,
+			Currency:             string(req.Money.CurrencyCode),
 			Description:          description,
-			Status:               string(domain.TRANSACTION_PENDING),
+			Status:               string(domain.TRANSACTION_COMPLETED),
 			AmountMinorUnits:     req.Money.AmountMinorUnits,
 		}
 
-		newTx, err := repo.CreateTransaction(ctx, tx)
+		newTx, err := stores.TransactionStore.CreateTransaction(ctx, tx)
 		if err != nil {
 			s.logger.Error().Err(err).Msg("failed to create transaction record")
 			return err
@@ -113,7 +128,7 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 				FromAccountID:        req.FromAccountID,
 				DestinationAccountID: req.DestinationAccountID,
 				AmountMinorUnits:     req.Money.AmountMinorUnits,
-				Currency:             req.Money.Currency,
+				Currency:             string(req.Money.CurrencyCode),
 			},
 			Status:         domain.OutboxEventPending,
 			IdempotencyKey: req.IdempotencyKey,
@@ -121,21 +136,18 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			//TODO:Convert this to a variable in config
 			Producer: "ledger service",
 		}
-		if err := repo.CreateOutBoxEvent(ctx, outboxEvent); err != nil {
+		if err := stores.OutboxStore.CreateOutBoxEvent(ctx, outboxEvent); err != nil {
 			s.logger.Error().Err(err).Msg("failed to create event")
 			return err
 		}
 		entries := make([]domain.LedgerEntry, 2)
-
 		//represents sender
 		entries[0] = domain.LedgerEntry{
 			TransactionID:    newTx.ID,
 			AccountID:        req.FromAccountID,
 			EntryType:        string(domain.TRANSACTION_DEBIT),
 			AmountMinorUnits: req.Money.AmountMinorUnits,
-			Currency:         req.Money.Currency,
-			IdempotencyKey:   req.IdempotencyKey,
-			Status:           string(domain.TRANSACTION_PENDING),
+			Currency:         string(req.Money.CurrencyCode),
 		}
 
 		//represents recipient
@@ -144,13 +156,19 @@ func (s LedgerService) baseTransfer(ctx context.Context, req domain.TransferRequ
 			AccountID:        req.DestinationAccountID,
 			EntryType:        string(domain.TRANSACTION_CREDIT),
 			AmountMinorUnits: req.Money.AmountMinorUnits,
-			Currency:         req.Money.Currency,
-			IdempotencyKey:   req.IdempotencyKey,
-			Status:           string(domain.TRANSACTION_PENDING),
+			Currency:         string(req.Money.CurrencyCode),
 		}
 
-		return repo.CreateLedgerEntry(ctx, entries)
+		return stores.LedgerEntryStore.CreateLedgerEntry(ctx, entries)
 	})
+}
+
+func (s LedgerService) InterBankTransfer(ctx context.Context, req domain.TransferRequest) error {
+	if req.DestinationAccountID == req.FromAccountID {
+		s.logger.Error().Str("func", "InterBankTransfer").Msg("self transfer is not allowed")
+		return fmt.Errorf("self transfer is not allowed")
+	}
+	return nil
 }
 
 func (s LedgerService) isInterBankTransfer(req domain.TransferRequest) bool {
@@ -166,4 +184,16 @@ func (s LedgerService) isInterBankTransfer(req domain.TransferRequest) bool {
 
 	normalized := strings.TrimSpace(strings.ToLower(transferType))
 	return normalized == "interbank" || normalized == "inter-bank" || normalized == "inter_bank"
+}
+
+func sortAccount(recipient, sender string) (string, string) {
+	if strings.Compare(recipient, sender) < 0 {
+		return recipient, sender
+	}
+
+	return sender, recipient
+}
+
+func calcTransferCharges(amount int64) int {
+	return 10
 }

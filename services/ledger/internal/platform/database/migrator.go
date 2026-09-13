@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	tern "github.com/jackc/tern/v2/migrate"
-	"github.com/justinndidit/nexus/ledger/internal/config"
+	"github.com/justinndidit/nexus/ledger/pkg/config"
 	"github.com/rs/zerolog"
 )
 
@@ -33,32 +33,38 @@ func Migrate(ctx context.Context, logger *zerolog.Logger, cfg *config.Config) er
 
 	conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to connect to postgres")
 		return err
 	}
 	defer conn.Close(ctx)
 
 	m, err := tern.NewMigrator(ctx, conn, "schema_version")
 	if err != nil {
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to initialize database migrator")
 		return fmt.Errorf("constructing database migrator: %w", err)
 	}
 	subtree, err := fs.Sub(migrations, "migrations")
 	if err != nil {
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to retrieve database migrations folder")
 		return fmt.Errorf("retrieving database migrations subtree: %w", err)
 	}
 	if err := m.LoadMigrations(subtree); err != nil {
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to retrieve migration files")
 		return fmt.Errorf("loading database migrations: %w", err)
 	}
 	from, err := m.GetCurrentVersion(ctx)
 	if err != nil {
-		return fmt.Errorf("retreiving current database migration version")
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to get database migration version")
+		return fmt.Errorf("error retreiving current database migration version: %w", err)
 	}
 	if err := m.Migrate(ctx); err != nil {
+		logger.Error().Err(err).Str("func", "Migrate").Msg("failed to migrate to database")
 		return err
 	}
 	if from == int32(len(m.Migrations)) {
-		logger.Info().Msgf("database schema up to date, version %d", len(m.Migrations))
+		logger.Info().Str("func", "Migrate").Msgf("database schema up to date, version %d", len(m.Migrations))
 	} else {
-		logger.Info().Msgf("migrated database schema, from %d to %d", from, len(m.Migrations))
+		logger.Info().Str("func", "Migrate").Msgf("migrated database schema, from %d to %d", from, len(m.Migrations))
 	}
 	return nil
 }

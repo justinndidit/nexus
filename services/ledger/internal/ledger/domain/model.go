@@ -22,34 +22,31 @@ const (
 )
 
 type Transaction struct {
-	ID                   uuid.UUID  `db:"id" json:"id"`
-	FromAccountID        uuid.UUID  `db:"from_account_id" json:"from_account_id"`
-	DestinationAccountID uuid.UUID  `db:"destination_account_id" json:"destination_account_id"`
-	Reference            string     `db:"reference" json:"reference omitempty"`
-	SessionID            string     `db:"session_id" json:"session_id"`
-	Currency             string     `db:"currency_code" json:"currency_code"`
-	Description          string     `db:"description" json:"description omitempty"`
-	Status               string     `db:"status" json:"status"`
-	AmountMinorUnits     int64      `db:"amount" json:"amount"`
-	CreatedAt            *time.Time `db:"created_at" json:"created_at"`
+	ID                   uuid.UUID  `db:"id"`
+	SourceAccountID      uuid.UUID  `db:"source_account_id"`
+	DestinationAccountID uuid.UUID  `db:"destination_account_id"`
+	Reference            string     `db:"reference"`
+	IdempotencyKey       string     `db:"idempotency_key"`
+	CurrencyCode         string     `db:"currency_code"`
+	Description          string     `db:"description"`
+	Status               string     `db:"status"`
+	AmountMinorUnits     int64      `db:"amount"`
+	CreatedAt            *time.Time `db:"created_at"`
 }
 
 type LedgerEntry struct {
-	ID               uuid.UUID  `json:"id" db:"id"`
-	TransactionID    uuid.UUID  `json:"transaction_id" db:"transaction_id"`
-	AccountID        uuid.UUID  `json:"account_id" db:"account_id"`
-	EntryType        string     `json:"entry_type" db:"entry_type"`
-	AmountMinorUnits int64      `json:"amount" db:"amount"`
-	Currency         string     `json:"currency_code" db:"currency_code"`
-	IdempotencyKey   string     `json:"idempotency_key" db:"idempotency_key"`
-	Status           string     `json:"status" db:"status"`
-	CreatedAt        *time.Time `json:"created_at" db:"created_at"`
+	ID               uuid.UUID  `db:"id"`
+	TransactionID    uuid.UUID  `db:"transaction_id"`
+	AccountID        uuid.UUID  `db:"account_id"`
+	EntryType        string     `db:"entry_type"`
+	AmountMinorUnits int64      `db:"amount"`
+	Currency         string     `db:"currency_code"`
+	CreatedAt        *time.Time `db:"created_at"`
 }
 
 type Account struct {
 	ID                         uuid.UUID  `json:"id" db:"id"`
 	UserID                     uuid.UUID  `json:"user_id" db:"user_id"`
-	ProfileID                  uuid.UUID  `json:"profile_id" db:"profile_id"`
 	AccountNumber              string     `json:"account_number" db:"account_number"`
 	Currency                   string     `json:"currency_code" db:"currency_code"`
 	AccountType                string     `json:"account_type" db:"account_type"`
